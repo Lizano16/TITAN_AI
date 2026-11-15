@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: titan-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: titan-api}
+  template:
+    metadata:
+      labels: {app: titan-api}
+    spec:
+      containers:
+        - name: api
+          image: REPLACE_WITH_BACKEND_IMAGE
+          command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+          envFrom:
+            - secretRef: {name: titan-config}
+          ports: [{containerPort: 8000}]
+          readinessProbe:
+            httpGet: {path: /ready, port: 8000}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: '1', memory: 1Gi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: titan-api
+spec:
+  selector: {app: titan-api}
+  ports: [{port: 8000, targetPort: 8000}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: titan-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: titan-worker}
+  template:
+    metadata:
+      labels: {app: titan-worker}
+    spec:
+      containers:
+        - name: worker
+          image: REPLACE_WITH_BACKEND_IMAGE
+          command: ["python", "-m", "app.worker"]
+          envFrom:
+            - secretRef: {name: titan-config}
+          resources:
+            requests: {cpu: 100m, memory: 512Mi}
+            limits: {cpu: '2', memory: 2Gi}
